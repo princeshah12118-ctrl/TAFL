@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Regex Visualizer Pro</title>
+    <style>
+        body { font-family: "Times New Roman", serif; padding: 40px; line-height: 1.6; max-width: 900px; margin: auto; }
+        h1 { font-size: 42px; margin-bottom: 10px; }
+        h3 { font-size: 28px; margin-top: 25px; border-bottom: 1px solid #eee; }
+        input { padding: 8px; font-size: 18px; border: 1px solid #777; width: 300px; margin-right: 10px; }
+        button { padding: 8px 15px; font-size: 18px; cursor: pointer; background: #eee; border: 1px solid #777; transition: 0.2s; }
+        button:hover { background: #333; color: white; }
+        
+        /* Palette Styles */
+        .palette { margin: 15px 0; display: flex; gap: 5px; }
+        .palette button { padding: 5px 12px; font-size: 14px; background: #f0f0f0; }
+
+        /* Output Boxes */
+        .output-box { min-height: 40px; padding: 15px; background: #f9f9f9; border-radius: 5px; margin-top: 10px; font-family: monospace; }
+        .state-container { display: flex; align-items: center; gap: 20px; margin-top: 20px; overflow-x: auto; padding: 20px; }
+        
+        /* Finite Automata UI */
+        .state { width: 50px; height: 50px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; position: relative; background: white; }
+        .state.accept { border: 4px double #333; }
+        .arrow { font-size: 24px; color: #666; }
+        .transition-label { font-size: 12px; position: absolute; top: -20px; color: blue; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Regular Expression Visualizer</h1>
+
+    <h3>Write Regular Expression</h3>
+    <div class="palette">
+        <button onclick="addChar('(')">(</button>
+        <button onclick="addChar(')')">)</button>
+        <button onclick="addChar('|')">|</button>
+        <button onclick="addChar('*')">*</button>
+        <button onclick="addChar('+')">+</button>
+        <button onclick="clearInput()">Clear</button>
+    </div>
+    
+    <input type="text" id="mainRegex" value="a(b|c)*">
+    <button onclick="processRegex()">Visualize & Generate</button>
+
+    <h3>Generated Strings</h3>
+    <div id="stringDisplay" class="output-box">Matches will appear here...</div>
+
+    <h3>Finite Automata (Simplified Path)</h3>
+    <div id="automataDisplay" class="state-container">
+        </div>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 1px solid #ccc;">
+
+    <h3>Check Regex Equivalence</h3>
+    <input type="text" id="regex1" placeholder="Expression 1">
+    <input type="text" id="regex2" placeholder="Expression 2">
+    <button onclick="checkEquivalence()">Check</button>
+    <div id="equivalenceResult" style="margin-top: 10px; font-weight: bold;"></div>
+
+    <script>
+        function addChar(c) { document.getElementById('mainRegex').value += c; }
+        function clearInput() { document.getElementById('mainRegex').value = ""; }
+
+        function processRegex() {
+            const pattern = document.getElementById('mainRegex').value;
+            generateStrings(pattern);
+            drawAutomata(pattern);
+        }
+
+        function generateStrings(pattern) {
+    const display = document.getElementById('stringDisplay');
+
+    try {
+        // convert TOC + into JS OR
+        pattern = pattern.replace(/\+/g, '|');
+
+        const re = new RegExp('^' + pattern + '$');
+
+        // Detect alphabet used in regex
+        let alphabet = [];
+
+        if (/[01]/.test(pattern)) {
+            alphabet = ['0','1'];   // binary
+        } 
+        else if (/[abc]/.test(pattern)) {
+            alphabet = ['a','b','c']; // alphabet
+        } 
+        else {
+            alphabet = ['a','b']; // default
+        }
+
+        let testSet = [''];
+
+        // generate strings up to length 4
+        for (let i = 0; i < 4; i++) {
+            let newSet = [];
+            testSet.forEach(str => {
+                alphabet.forEach(ch => {
+                    newSet.push(str + ch);
+                });
+            });
+            testSet = testSet.concat(newSet);
+        }
+
+        const matches = testSet.filter(s => re.test(s));
+
+        display.innerText =
+            matches.length > 0
+            ? matches.slice(0,50).join(', ')
+            : "No matches found.";
+
+    } catch(e) {
+        display.innerText = "Invalid Syntax.";
+    }
+}
+        
+
+        function drawAutomata(pattern) {
+            const container = document.getElementById('automataDisplay');
+            container.innerHTML = ""; // Clear old
+            
+            // Simplified Logic: Break the string into parts to show states
+            // Real DFA construction is complex; this provides the visual mapping
+            let parts = pattern.replace(/[()*+?]/g, "").split("");
+            if (parts.length === 0) return;
+
+            parts.forEach((char, index) => {
+                // Create State Circle
+                let state = document.createElement('div');
+                state.className = "state";
+                if (index === parts.length - 1) state.classList.add('accept');
+                state.innerHTML = `q${index}`;
+                container.appendChild(state);
+
+                // Create Arrow if not last
+                if (index < parts.length - 1) {
+                    let arrow = document.createElement('div');
+                    arrow.className = "arrow";
+                    arrow.innerHTML = ` ⎯⎯ ${parts[index]} ⎯⎯▶ `;
+                    container.appendChild(arrow);
+                }
+            });
+        }
+
+        function checkEquivalence() {
+            const re1 = document.getElementById('regex1').value;
+            const re2 = document.getElementById('regex2').value;
+            const res = document.getElementById('equivalenceResult');
+            try {
+                const r1 = new RegExp('^' + re1 + '$');
+                const r2 = new RegExp('^' + re2 + '$');
+                const testCases = ['', 'a', 'b', 'aa', 'ab', 'ba', 'bb', '1', '0'];
+                let isEquiv = testCases.every(t => r1.test(t) === r2.test(t));
+                res.innerText = isEquiv ? "✓ Equivalent" : "✗ Not Equivalent";
+                res.style.color = isEquiv ? "green" : "red";
+            } catch (e) { res.innerText = "Error in Syntax."; }
+        }
+    </script>
+</body>
+</html>
